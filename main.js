@@ -36,7 +36,6 @@ const Main = () => {
   const [getCategory, setCategory] = useState([]);
   const [getProducts, setProducts] = useState([]);
   const [selectedProduct, setSelectedProduct] = useState([]);
-  const [getUsersCartId, setGetUsersCartId] = useState([]);
 
   const [show, setShow] = useState(false);
   const handleClose = () => setShow(false);
@@ -50,9 +49,9 @@ const Main = () => {
   const handleCloseUsersCartModal = () => setShowUsersCartModal(false);
   const handleShowUsersCartModal = () => setShowUsersCartModal(true);
 
-  const [showUserOrderModal, setShowUserOrderModal] = useState(false);
-  const handleCloseUserOrderModal = () => setShowUserOrderModal(false);
-  const handleShowUserOrderModal = () => setShowUserOrderModal(true);
+  const [showDirectOrderModal, setShowDirectOrderModal] = useState(false);
+  const handleCloseDirectOrderModal = () => setShowDirectOrderModal(false);
+  const handleShowDirectOrderModal = () => setShowDirectOrderModal(true);
 
   const [selectedProductName, setSelectedProductName] = useState("");
   const [selectedProductPrice, setSelectedProductPrice] = useState("");
@@ -62,17 +61,7 @@ const Main = () => {
   const [productId, setproductId] = useState("");
   const [quantity, setQuantity] = useState(1);
 
-  const [selectedProducts, setSelectedProducts] = useState([]);
-
-  const handleProductSelect = (productId) => {
-    setSelectedProducts((prevSelected) => {
-      if (prevSelected.includes(productId)) {
-        return prevSelected.filter((id) => id !== productId);
-      } else {
-        return [...prevSelected, productId];
-      }
-    });
-  };
+  const [cartItems, setCartItems] = useState([]);
 
   const userLogin = async () => {
     const url = "http://localhost/nextjs/api/e-commerce/users.php";
@@ -152,31 +141,9 @@ const Main = () => {
     setCategory(response.data);
   };
 
-  const retriveUsersCartId = async (userId) => {
-    const url = "http://localhost/nextjs/api/e-commerce/users.php";
-
-    const jsonData = {
-      userId: userId,
-    };
-
-    const formData = new FormData();
-    formData.append("operation", "fetchCart");
-    formData.append("json", JSON.stringify(jsonData));
-
-    const response = await axios({
-      url: url,
-      method: "POST",
-      data: formData,
-    });
-
-    console.log("User's cart", response.data);
-    setGetUsersCartId(response.data);
-  };
-
   useEffect(() => {
     retrieveProducts();
     retrieveCategory();
-    // retriveCart();
   }, []);
 
   const handleShowModal = (productId) => {
@@ -184,19 +151,13 @@ const Main = () => {
     handleShow(true);
   };
 
-  const handleShowOrderModal = (productId) => {
-    retrieveProductsbyId(productId);
-    handleShowUserOrderModal(true);
+  const handleShowCartModal = () => {
+    handleShowUsersCartModal(true);
   };
 
-  const handleShowCartModal = () => {
-    if (!userId) {
-      handleShowLoginModal();
-      return;
-    }
-
-    retriveUsersCartId(userId);
-    handleShowUsersCartModal(true);
+  const handleDirectOrder = (productId) => {
+    retrieveProductsbyId(productId);
+    handleShowDirectOrderModal(true);
   };
 
   const filteredAndSearchedProducts = getProducts
@@ -235,38 +196,71 @@ const Main = () => {
     }
   };
 
-  const placeOrder = async (products) => {
-    if (!userId) {
-      handleShowLoginModal();
-      return;
-    }
+  const handleAddToCartClick = () => {
+    if (window.confirm("Add this item to your cart?")) {
+      const newItem = {
+        productId,
+        productName: selectedProductName,
+        price: selectedProductPrice,
+        quantity,
+        selected: false,
+      };
 
+      setCartItems((prevItems) => [...prevItems, newItem]);
+      setQuantity(1);
+      setShow(false);
+
+      const isAddedSuccessfully = true;
+
+      if (isAddedSuccessfully) {
+        setCartCount((prevCount) => prevCount + 1);
+      }
+
+      if (userId) {
+        addToCart();
+      }
+    }
+  };
+
+  const handleCheckboxChange = (index) => {
+    const newCartItems = [...cartItems];
+    newCartItems[index].selected = !newCartItems[index].selected;
+    setCartItems(newCartItems);
+    const selectedItems = newCartItems.filter((item) => item.selected);
+    console.log(selectedItems.map((item) => JSON.stringify(item)));
+  };
+
+  const calculateTotalPrice = () => {
+    return cartItems.reduce(
+      (total, item) => total + (item.selected ? item.price * item.quantity : 0),
+      0
+    );
+  };
+
+  const placeOrder = async (selectedItems = []) => {
     const url = "http://localhost/nextjs/api/e-commerce/users.php";
 
-    let orderDetails;
-    if (Array.isArray(products)) {
-      orderDetails = products.map((productId) => {
-        const selectedProduct = getUsersCartId.find(
-          (product) => product.product_id === productId
-        );
-        return {
-          productId: productId,
-          quantity: selectedProduct.quantity,
-        };
-      });
-    } else {
-      orderDetails = [
-        {
-          productId: products,
-          quantity: 1,
-        },
-      ];
-    }
+    let jsonData;
 
-    const jsonData = {
-      userId: userId,
-      products: orderDetails,
-    };
+    if (selectedItems.length === 0) {
+      jsonData = {
+        orders: [
+          {
+            userId: userId,
+            productId: productId,
+            quantity: quantity,
+          },
+        ],
+      };
+    } else {
+      jsonData = {
+        orders: selectedItems.map((item) => ({
+          userId: userId,
+          productId: item.productId,
+          quantity: item.quantity,
+        })),
+      };
+    }
 
     console.log(jsonData);
 
@@ -280,26 +274,38 @@ const Main = () => {
       data: formData,
     });
 
-    if (response.data === 1) {
-      alert("Order Successful!");
-      setSelectedProducts("");
+    if (response.data == 1) {
+      if (selectedItems.length === 0) {
+        alert("Order Successfully!");
+        retrieveProducts();
+      } else {
+        alert("Checkout Successfully!");
+        setCartItems(cartItems.filter((item) => !item.selected));
+        setCartCount(0);
+      }
     } else {
-      alert("Order Failed");
+      if (selectedItems.length === 0) {
+        alert("Order Failed!");
+      } else {
+        alert("Checkout Failed!");
+      }
     }
   };
 
-  // const userOrder = async () => {
-  //   if (!userId) {
-  //     handleShowLoginModal();
+  // const checkOut = async () => {
+  //   const selectedItems = cartItems.filter((item) => item.selected);
+  //   if (selectedItems.length === 0) {
+  //     alert("Please select at least one item to checkout.");
   //     return;
   //   }
-
   //   const url = "http://localhost/nextjs/api/e-commerce/users.php";
 
   //   const jsonData = {
-  //     userId: userId,
-  //     productId: productId,
-  //     quantity: quantity,
+  //     orders: selectedItems.map((item) => ({
+  //       userId: userId,
+  //       productId: item.productId,
+  //       quantity: item.quantity,
+  //     })),
   //   };
 
   //   console.log(jsonData);
@@ -314,40 +320,32 @@ const Main = () => {
   //     data: formData,
   //   });
 
-  //   if (response.data === 1) {
-  //     alert("Order Successful!");
+  //   if (response.data == 1) {
+  //     alert("Checkout Successfully!");
+  //     setCartItems(cartItems.filter((item) => !item.selected));
+  //     setCartCount(0);
   //   } else {
-  //     alert("Order Failed");
+  //     alert("Checkout Failed!");
   //   }
   // };
 
-  // const checkOutCart = async () => {
-  //   if (!userId) {
-  //     handleShowLoginModal();
-  //     return;
-  //   }
-
+  // const orderPlaced = async () => {
   //   const url = "http://localhost/nextjs/api/e-commerce/users.php";
 
-  //   const orderDetails = selectedProducts.map((productId) => {
-  //     const selectedProduct = getUsersCartId.find(
-  //       (product) => product.product_id === productId
-  //     );
-  //     return {
-  //       productId: productId,
-  //       quantity: selectedProduct.quantity,
-  //     };
-  //   });
-
   //   const jsonData = {
-  //     userId: userId,
-  //     products: orderDetails,
+  //     orders: [
+  //       {
+  //         userId: userId,
+  //         productId: productId,
+  //         quantity: quantity,
+  //       },
+  //     ],
   //   };
 
   //   console.log(jsonData);
 
   //   const formData = new FormData();
-  //   formData.append("operation", "checkOut");
+  //   formData.append("operation", "orders");
   //   formData.append("json", JSON.stringify(jsonData));
 
   //   const response = await axios({
@@ -356,45 +354,13 @@ const Main = () => {
   //     data: formData,
   //   });
 
-  //   if (response.data === 1) {
-  //     alert("Order Successful!");
-  //     setSelectedProducts("");
+  //   if (response.data == 1) {
+  //     alert("Direct order Successfully");
+  //     retrieveProducts();
   //   } else {
-  //     alert("Order Failed");
+  //     alert("Direct order Failed");
   //   }
   // };
-
-  // const handleOrderClick = () => {
-  //   if (!userId) {
-  //     handleShowLoginModal();
-  //     return;
-  //   }
-
-  //   if (window.confirm("Are you sure to order this product?")) {
-  //     userOrder();
-  //     setShowUserOrderModal(false);
-  //   }
-  // };
-
-  const handleAddToCartClick = () => {
-    if (!userId) {
-      handleShowLoginModal();
-      return;
-    }
-
-    if (
-      window.confirm("Are you sure you want to add this product to your cart?")
-    ) {
-      addToCart();
-      setShow(false);
-
-      const isAddedSuccessfully = true;
-
-      if (isAddedSuccessfully) {
-        setCartCount((prevCount) => prevCount + 1);
-      }
-    }
-  };
 
   return (
     <>
@@ -456,7 +422,7 @@ const Main = () => {
               className="ms-1"
               style={{ cursor: "pointer" }}
               onClick={() => {
-                handleShowCartModal(userId);
+                handleShowCartModal();
               }}
             />
             {cartCount > 0 && (
@@ -576,7 +542,7 @@ const Main = () => {
                           variant="warning"
                           className="d-flex align-items-center"
                           onClick={() => {
-                            handleShowOrderModal(product.product_id);
+                            handleDirectOrder(product.product_id);
                           }}
                         >
                           <Icons.Basket className="me-2" /> Order
@@ -591,7 +557,6 @@ const Main = () => {
         </Row>
       </Container>
 
-      {/* for login modal */}
       <Modal show={showLoginModal} onHide={handleCloseLoginModal} centered>
         <Modal.Header closeButton>
           <Modal.Title className="w-100 text-center">
@@ -650,7 +615,6 @@ const Main = () => {
         </Modal.Footer>
       </Modal>
 
-      {/* for add to cart modal */}
       <Modal show={show} onHide={handleClose} centered>
         <Modal.Header closeButton>
           <Modal.Title>Product Detail</Modal.Title>
@@ -691,7 +655,7 @@ const Main = () => {
               fontSize: "1.15rem",
             }}
           >
-            Total: ₱
+            Total Price: ₱
             {(selectedProductPrice * quantity).toLocaleString("en-US", {
               minimumFractionDigits: 2,
               maximumFractionDigits: 2,
@@ -713,10 +677,96 @@ const Main = () => {
         </Modal.Footer>
       </Modal>
 
-      {/* for order modal */}
+      {/* displaying add to cart product */}
       <Modal
-        show={showUserOrderModal}
-        onHide={handleCloseUserOrderModal}
+        show={showUsersCartModal}
+        onHide={handleCloseUsersCartModal}
+        centered
+      >
+        <Modal.Header closeButton>
+          <Modal.Title>Cart</Modal.Title>
+        </Modal.Header>
+        <Modal.Body>
+          {cartItems.length === 0 ? (
+            <p>Your cart is empty.</p>
+          ) : (
+            <Table striped bordered hover>
+              <thead>
+                <tr>
+                  <th></th>
+                  <th>Product Name</th>
+                  <th>Price</th>
+                  <th>Quantity</th>
+                  <th>Total</th>
+                </tr>
+              </thead>
+              <tbody>
+                {cartItems.map((item, index) => (
+                  <tr key={index}>
+                    <td>
+                      <Form.Check
+                        type="checkbox"
+                        checked={item.selected}
+                        onChange={() => handleCheckboxChange(index)}
+                      />
+                    </td>
+                    <td>{item.productName}</td>
+                    <td>
+                      ₱
+                      {item.price.toLocaleString("en-PH", {
+                        minimumFractionDigits: 2,
+                        maximumFractionDigits: 2,
+                      })}
+                    </td>
+                    <td>{item.quantity}</td>
+                    <td>
+                      ₱
+                      {(item.price * item.quantity).toLocaleString("en-PH", {
+                        minimumFractionDigits: 2,
+                        maximumFractionDigits: 2,
+                      })}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </Table>
+          )}
+        </Modal.Body>
+        <Modal.Footer style={{ justifyContent: "space-between" }}>
+          {cartItems.length > 0 && (
+            <p>
+              Total price: ₱
+              {calculateTotalPrice().toLocaleString("en-PH", {
+                minimumFractionDigits: 2,
+                maximumFractionDigits: 2,
+              })}
+            </p>
+          )}
+          <div style={{ display: "flex", gap: "10px" }}>
+            <Button variant="secondary" onClick={handleCloseUsersCartModal}>
+              Close
+            </Button>
+            {cartItems.length > 0 && (
+              <Button
+                variant="primary"
+                onClick={() => {
+                  const selectedItems = cartItems.filter(
+                    (item) => item.selected
+                  );
+                  placeOrder(selectedItems);
+                  handleCloseUsersCartModal();
+                }}
+              >
+                Checkout
+              </Button>
+            )}
+          </div>
+        </Modal.Footer>
+      </Modal>
+
+      <Modal
+        show={showDirectOrderModal}
+        onHide={handleCloseDirectOrderModal}
         centered
       >
         <Modal.Header closeButton>
@@ -758,7 +808,7 @@ const Main = () => {
               fontSize: "1.15rem",
             }}
           >
-            Total: ₱
+            Total Price: ₱
             {(selectedProductPrice * quantity).toLocaleString("en-US", {
               minimumFractionDigits: 2,
               maximumFractionDigits: 2,
@@ -766,73 +816,19 @@ const Main = () => {
           </Card.Text>
         </Modal.Body>
         <Modal.Footer>
-          <Button variant="secondary" onClick={handleCloseUserOrderModal}>
+          <Button variant="secondary" onClick={handleCloseDirectOrderModal}>
             Close
           </Button>
 
           <Button
-            variant="success"
+            variant="danger"
             onClick={() => {
-              placeOrder(productId);
-              handleCloseUserOrderModal();
+              placeOrder();
+              handleCloseDirectOrderModal();
             }}
             className="d-flex align-items-center justify-content-center"
           >
-            <Icons.Cart className="me-2" /> Order placed
-          </Button>
-        </Modal.Footer>
-      </Modal>
-
-      {/* for displaying cart modal */}
-      <Modal
-        show={showUsersCartModal}
-        onHide={handleCloseUsersCartModal}
-        centered
-      >
-        <Modal.Header closeButton>
-          <Modal.Title>Cart</Modal.Title>
-        </Modal.Header>
-        <Modal.Body>
-          <Table>
-            <thead>
-              <tr>
-                <th>Select</th>
-                <th>Product Name</th>
-                <th>Price</th>
-                <th>Quantity</th>
-              </tr>
-            </thead>
-            <tbody>
-              {getUsersCartId.map((product, index) => (
-                <tr key={`${product.product_id}-${index}`}>
-                  <td>
-                    <input
-                      type="checkbox"
-                      checked={selectedProducts.includes(product.product_id)}
-                      onChange={() => handleProductSelect(product.product_id)}
-                    />
-                  </td>
-                  <td>{product.product_name}</td>
-                  <td>{product.formatted_price}</td>
-                  <td>{product.quantity}</td>
-                </tr>
-              ))}
-            </tbody>
-          </Table>
-        </Modal.Body>
-        <Modal.Footer>
-          <Button variant="secondary" onClick={handleCloseUsersCartModal}>
-            Close
-          </Button>
-          <Button
-            variant="success"
-            onClick={() => {
-              placeOrder(selectedProducts);
-              handleCloseUsersCartModal();
-            }}
-            disabled={selectedProducts.length === 0}
-          >
-            Order placed
+            <Icons.Basket2 className="me-2" /> Order Placed
           </Button>
         </Modal.Footer>
       </Modal>
