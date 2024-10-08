@@ -1,72 +1,122 @@
 "use client";
 import axios from "axios";
-import { useState, useEffect } from "react";
+import Link from "next/link";
+import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
+import * as Icons from "react-bootstrap-icons";
 import { useSearchParams } from "next/navigation";
 import {
-  Button,
-  Collapse,
-  Form,
-  Table,
+  Navbar,
   Container,
+  Button,
+  Form,
+  Card,
   Row,
   Col,
-  OverlayTrigger,
-  Tooltip,
   Modal,
+  Badge,
+  Table,
 } from "react-bootstrap";
-import * as Icons from 'react-bootstrap-icons';
-import AdminNavbar from "@/components/admin/navbar";
 
-const Products = () => {
-  //---------------------for adding new product-------------------//
-  const [productName, setProductName] = useState("");
-  const [productPrice, setProductPrice] = useState("");
-  const [productDescription, setProductDescription] = useState("");
-  const [category, setCategory] = useState("");
+const Main = () => {
+  const [username, setUsername] = useState("");
+  const [password, setPassword] = useState("");
+  const router = useRouter();
 
-  //---------------get data from API----------------------------//
-  const [getCategory, setGetCategory] = useState([]);
-  const [getProduct, setGetProduct] = useState([]);
-  const [getProductById, setProductById] = useState([]);
+  const [cartCount, setCartCount] = useState(0);
 
-  //-------------------search params from login-----------//
   const searchParams = useSearchParams();
-  const adminId = searchParams.get("adminId");
   const firstname = searchParams.get("firstname");
   const lastname = searchParams.get("lastname");
+  const userId = searchParams.get("userId");
 
-  //-------------------for update modal------------------------//
-  const [showUpdate, setShowUpdate] = useState(false);
-  const handleCloseModal = () => setShowUpdate(false);
-  const handleShowModal = () => setShowUpdate(true);
+  const [searchProduct, setSearchProduct] = useState("");
+  const [selectedCategory, setSelectedCategory] = useState("");
 
-  //-------------------for adding new product modal--------------//
-  const [showAddProduct, setShowAddProduct] = useState(false);
-  const handleCloseAddProductModal = () => setShowAddProduct(false);
-  const handleShowAddProductModal = () => setShowAddProduct(true);
+  const [getCategory, setCategory] = useState([]);
+  const [getProducts, setProducts] = useState([]);
+  const [selectedProduct, setSelectedProduct] = useState([]);
+  const [getUsersCartId, setGetUsersCartId] = useState([]);
 
-  //-----------------for update modal form field display-------------------//
-  const [productNameUpdate, setProductNameUpdate] = useState("");
-  const [productPriceUpdate, setProductPriceUpdate] = useState("");
-  const [productDescriptionUpdate, setProductDescriptionUpdate] = useState("");
-  const [categoryUpdate, setCategoryUpdate] = useState("");
+  const [show, setShow] = useState(false);
+  const handleClose = () => setShow(false);
+  const handleShow = () => setShow(true);
+
+  const [showLoginModal, setShowLoginModal] = useState(false);
+  const handleCloseLoginModal = () => setShowLoginModal(false);
+  const handleShowLoginModal = () => setShowLoginModal(true);
+
+  const [showUsersCartModal, setShowUsersCartModal] = useState(false);
+  const handleCloseUsersCartModal = () => setShowUsersCartModal(false);
+  const handleShowUsersCartModal = () => setShowUsersCartModal(true);
+
+  const [showUserOrderModal, setShowUserOrderModal] = useState(false);
+  const handleCloseUserOrderModal = () => setShowUserOrderModal(false);
+  const handleShowUserOrderModal = () => setShowUserOrderModal(true);
+
+  const [selectedProductName, setSelectedProductName] = useState("");
+  const [selectedProductPrice, setSelectedProductPrice] = useState("");
+  const [selectedProductDescription, setSelectedProductDescription] =
+    useState("");
   const [categoryId, setCategoryId] = useState("");
-  const [productId, setProductId] = useState("");
+  const [productId, setproductId] = useState("");
+  const [quantity, setQuantity] = useState(1);
+
+  const [selectedProducts, setSelectedProducts] = useState([]);
+
+  const handleProductSelect = (productId) => {
+    setSelectedProducts((prevSelected) => {
+      if (prevSelected.includes(productId)) {
+        return prevSelected.filter((id) => id !== productId);
+      } else {
+        return [...prevSelected, productId];
+      }
+    });
+  };
+
+  const userLogin = async () => {
+    const url = "http://localhost/nextjs/api/e-commerce/users.php";
+
+    const jsonData = {
+      username: username,
+      password: password,
+    };
+
+    const response = await axios.get(url, {
+      params: {
+        json: JSON.stringify(jsonData),
+        operation: "userLogin",
+      },
+    });
+
+    if (response.data.length > 0) {
+      let params = new URLSearchParams();
+      params.append("userId", response.data[0].user_id);
+      params.append("firstname", response.data[0].firstname);
+      params.append("lastname", response.data[0].lastname);
+      alert("Login Success");
+      setUsername("");
+      setPassword("");
+      router.push(`/?${params}`);
+    } else {
+      alert("Login failed");
+    }
+  };
 
   const retrieveProducts = async () => {
-    const url = "http://localhost/nextjs/api/e-commerce/e-commerce.php";
+    const url = "http://localhost/nextjs/api/e-commerce/users.php";
+
     const response = await axios.get(url, {
       params: {
         json: JSON.stringify({}),
-        operation: "adminDisplayProduct",
+        operation: "fetchProducts",
       },
     });
-    setGetProduct(response.data);
-    console.log("All Products: ", response.data);
+    setProducts(response.data);
   };
 
-  const retrieveProductsById = async (productId) => {
-    const url = "http://localhost/nextjs/api/e-commerce/e-commerce.php";
+  const retrieveProductsbyId = async (productId) => {
+    const url = "http://localhost/nextjs/api/e-commerce/users.php";
 
     const jsonData = {
       productId: productId,
@@ -75,101 +125,42 @@ const Products = () => {
     const response = await axios.get(url, {
       params: {
         json: JSON.stringify(jsonData),
-        operation: "adminDisplayProductById",
+        operation: "fetchProductsbyId",
       },
     });
-    setProductById(response.data);
-    console.log("Selected Product:", response.data);
+    setSelectedProduct(response.data);
+    console.log("Product Selected: ", response.data);
 
     const product = response.data[0];
-    setProductNameUpdate(product.product_name);
-    setProductPriceUpdate(product.product_price);
-    setProductDescriptionUpdate(product.product_description);
-    setCategoryUpdate(product.category_name);
+    setSelectedProductName(product.product_name);
+    setSelectedProductPrice(product.product_price);
+    setSelectedProductDescription(product.product_description);
+    //setCategoryUpdate(product.category_name);
     setCategoryId(product.category_id);
-    setProductId(product.product_id);
-  };
-
-  const showUpdateModalForm = (productId) => {
-    retrieveProductsById(productId);
-    handleShowModal(true);
+    setproductId(product.product_id);
   };
 
   const retrieveCategory = async () => {
-    const url = "http://localhost/nextjs/api/e-commerce/e-commerce.php";
+    const url = "http://localhost/nextjs/api/e-commerce/users.php";
 
     const response = await axios.get(url, {
       params: {
         json: JSON.stringify({}),
-        operation: "adminDisplayCategory",
+        operation: "fetchCategory",
       },
     });
-    setGetCategory(response.data);
-    console.log("Categories: ", response.data);
+    setCategory(response.data);
   };
 
-  useEffect(() => {
-    retrieveCategory();
-    retrieveProducts();
-  }, []);
-
-  const handleSelectionCategory = (event) => {
-    setCategory(event.target.value);
-  };
-
-  const addProduct = async () => {
-    if (!productName || !productPrice || !productDescription || !category) {
-      alert("Input field required!");
-      return;
-    }
-
-    const url = "http://localhost/nextjs/api/e-commerce/e-commerce.php";
+  const retriveUsersCartId = async (userId) => {
+    const url = "http://localhost/nextjs/api/e-commerce/users.php";
 
     const jsonData = {
-      productName: productName,
-      productPrice: productPrice,
-      productDescription: productDescription,
-      category: category,
-      admin: adminId,
+      userId: userId,
     };
-
-    console.log(jsonData);
-
-    const response = await axios.get(url, {
-      params: {
-        json: JSON.stringify(jsonData),
-        operation: "adminAddProduct",
-      },
-    });
-
-    if (response.data == 1) {
-      alert("Product added successfully!");
-      setProductName("");
-      setProductPrice("");
-      setProductDescription("");
-      setCategory("");
-      retrieveProducts();
-    } else {
-      alert("Failed to add product!");
-    }
-  };
-
-  const updateProducts = async () => {
-    const url = "http://localhost/nextjs/api/e-commerce/e-commerce.php";
-
-    const jsonData = {
-      productId: productId,
-      productName: productNameUpdate,
-      productPrice: productPriceUpdate,
-      productDescription: productDescriptionUpdate,
-      category: categoryId,
-      admin: adminId,
-    };
-
-    console.log(jsonData);
 
     const formData = new FormData();
-    formData.append("operation", "adminUpdateProduct");
+    formData.append("operation", "fetchCart");
     formData.append("json", JSON.stringify(jsonData));
 
     const response = await axios({
@@ -178,249 +169,670 @@ const Products = () => {
       data: formData,
     });
 
+    console.log("User's cart", response.data);
+    setGetUsersCartId(response.data);
+  };
+
+  useEffect(() => {
+    retrieveProducts();
+    retrieveCategory();
+    // retriveCart();
+  }, []);
+
+  const handleShowModal = (productId) => {
+    retrieveProductsbyId(productId);
+    handleShow(true);
+  };
+
+  const handleShowOrderModal = (productId) => {
+    retrieveProductsbyId(productId);
+    handleShowUserOrderModal(true);
+  };
+
+  const handleShowCartModal = () => {
+    if (!userId) {
+      handleShowLoginModal();
+      return;
+    }
+
+    retriveUsersCartId(userId);
+    handleShowUsersCartModal(true);
+  };
+
+  const filteredAndSearchedProducts = getProducts
+    .filter((product) =>
+      selectedCategory ? product.category_name === selectedCategory : true
+    )
+    .filter((product) =>
+      product.product_name.toLowerCase().includes(searchProduct.toLowerCase())
+    );
+
+  const addToCart = async () => {
+    if (!userId) {
+      handleShowLoginModal();
+      return;
+    }
+    const url = "http://localhost/nextjs/api/e-commerce/users.php";
+
+    const jsonData = {
+      userId: userId,
+      productId: productId,
+      quantity: quantity,
+    };
+
+    const response = await axios.get(url, {
+      params: {
+        json: JSON.stringify(jsonData),
+        operation: "addToCart",
+      },
+    });
+
     if (response.data == 1) {
-      alert("Product Updated Successfully");
-      retrieveProducts();
+      alert("Add to cart successful!");
+      setQuantity(1);
     } else {
-      alert("Product Update Failed");
+      alert("Add to cart failed!");
+    }
+  };
+
+  const placeOrder = async (products) => {
+    if (!userId) {
+      handleShowLoginModal();
+      return;
+    }
+
+    const url = "http://localhost/nextjs/api/e-commerce/users.php";
+
+    let orderDetails;
+    if (Array.isArray(products)) {
+      orderDetails = products.map((productId) => {
+        const selectedProduct = getUsersCartId.find(
+          (product) => product.product_id === productId
+        );
+        return {
+          productId: productId,
+          quantity: selectedProduct.quantity,
+        };
+      });
+    } else {
+      orderDetails = [
+        {
+          productId: products,
+          quantity: 1,
+        },
+      ];
+    }
+
+    const jsonData = {
+      userId: userId,
+      products: orderDetails,
+    };
+
+    console.log(jsonData);
+
+    const formData = new FormData();
+    formData.append("operation", "orders");
+    formData.append("json", JSON.stringify(jsonData));
+
+    const response = await axios({
+      url: url,
+      method: "POST",
+      data: formData,
+    });
+
+    if (response.data === 1) {
+      alert("Order Successful!");
+      setSelectedProducts("");
+    } else {
+      alert("Order Failed");
+    }
+  };
+
+  // const userOrder = async () => {
+  //   if (!userId) {
+  //     handleShowLoginModal();
+  //     return;
+  //   }
+
+  //   const url = "http://localhost/nextjs/api/e-commerce/users.php";
+
+  //   const jsonData = {
+  //     userId: userId,
+  //     productId: productId,
+  //     quantity: quantity,
+  //   };
+
+  //   console.log(jsonData);
+
+  //   const formData = new FormData();
+  //   formData.append("operation", "orders");
+  //   formData.append("json", JSON.stringify(jsonData));
+
+  //   const response = await axios({
+  //     url: url,
+  //     method: "POST",
+  //     data: formData,
+  //   });
+
+  //   if (response.data === 1) {
+  //     alert("Order Successful!");
+  //   } else {
+  //     alert("Order Failed");
+  //   }
+  // };
+
+  // const checkOutCart = async () => {
+  //   if (!userId) {
+  //     handleShowLoginModal();
+  //     return;
+  //   }
+
+  //   const url = "http://localhost/nextjs/api/e-commerce/users.php";
+
+  //   const orderDetails = selectedProducts.map((productId) => {
+  //     const selectedProduct = getUsersCartId.find(
+  //       (product) => product.product_id === productId
+  //     );
+  //     return {
+  //       productId: productId,
+  //       quantity: selectedProduct.quantity,
+  //     };
+  //   });
+
+  //   const jsonData = {
+  //     userId: userId,
+  //     products: orderDetails,
+  //   };
+
+  //   console.log(jsonData);
+
+  //   const formData = new FormData();
+  //   formData.append("operation", "checkOut");
+  //   formData.append("json", JSON.stringify(jsonData));
+
+  //   const response = await axios({
+  //     url: url,
+  //     method: "POST",
+  //     data: formData,
+  //   });
+
+  //   if (response.data === 1) {
+  //     alert("Order Successful!");
+  //     setSelectedProducts("");
+  //   } else {
+  //     alert("Order Failed");
+  //   }
+  // };
+
+  // const handleOrderClick = () => {
+  //   if (!userId) {
+  //     handleShowLoginModal();
+  //     return;
+  //   }
+
+  //   if (window.confirm("Are you sure to order this product?")) {
+  //     userOrder();
+  //     setShowUserOrderModal(false);
+  //   }
+  // };
+
+  const handleAddToCartClick = () => {
+    if (!userId) {
+      handleShowLoginModal();
+      return;
+    }
+
+    if (
+      window.confirm("Are you sure you want to add this product to your cart?")
+    ) {
+      addToCart();
+      setShow(false);
+
+      const isAddedSuccessfully = true;
+
+      if (isAddedSuccessfully) {
+        setCartCount((prevCount) => prevCount + 1);
+      }
     }
   };
 
   return (
     <>
-      <AdminNavbar />
-      <Container>
-        <Row>
-          <Col>
-            <Button
-              variant="primary"
-              className="mt-3 d-flex align-items-center gap-2"
-              onClick={handleShowAddProductModal}
-              style={{
-                cursor: "pointer",
-                padding: "0.5rem 1.5rem",
-                borderRadius: "0.375rem",
-                boxShadow: "0 4px 8px rgba(0, 0, 0, 0.1)",
-                transition: "all 0.3s ease",
-              }}
-            >
-              <Plus size={"2rem"} />
-              Add Products
-            </Button>
-          </Col>
-        </Row>
+      <Navbar
+        expand="lg"
+        className="bg-dark navbar-dark shadow-sm"
+        style={{ borderBottom: "2px solid #444" }}
+      >
+        <Container
+          fluid
+          className="d-flex flex-wrap justify-content-between align-items-center"
+          style={{ minHeight: "56px" }}
+        >
+          <Navbar.Brand className="m-0 mb-2 mb-lg-0 me-3">
+            E-Commerce
+          </Navbar.Brand>
 
-        {/* Product Table */}
-        <Row className="mt-5">
-          <Col>
-            <Table striped bordered hover responsive className="table-lg">
-              <thead className="bg-primary text-white">
-                <tr>
-                  <th>Product Name</th>
-                  <th>Product Price</th>
-                  <th>Product Description</th>
-                  <th>Category</th>
-                  <th style={{ textAlign: "center" }}>Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {getProduct.map((product, index) => (
-                  <tr key={index}>
-                    <td>{product.product_name}</td>
-                    <td>{product.product_price}</td>
-                    <td>{product.product_description}</td>
-                    <td>{product.category_name}</td>
-                    <td style={{ textAlign: "center" }}>
-                      <OverlayTrigger
-                        placement="top"
-                        overlay={
-                          <Tooltip id={`tooltip-${index}`}>Edit</Tooltip>
-                        }
-                      >
-                        <Button
-                          variant="outline-primary"
-                          size="sm"
-                          onClick={() =>
-                            showUpdateModalForm(product.product_id)
-                          }
-                        >
-                          <Pen />
-                        </Button>
-                      </OverlayTrigger>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </Table>
-          </Col>
+          <Navbar.Brand className="m-0 mb-2 mb-lg-0 me-3">
+            {firstname} {lastname}
+          </Navbar.Brand>
+
+          <div
+            className="d-flex align-items-center mb-2 mb-lg-0"
+            style={{ flexGrow: 1, maxWidth: "350px", position: "relative" }}
+          >
+            <Form.Control
+              type="search"
+              placeholder="Search Products"
+              value={searchProduct}
+              onChange={(e) => setSearchProduct(e.target.value)}
+              style={{
+                paddingRight: "2rem",
+                width: "100%",
+              }}
+            />
+            <Icons.Search
+              color="gray"
+              size="1.2rem"
+              style={{
+                position: "absolute",
+                right: "10px",
+                top: "50%",
+                transform: "translateY(-50%)",
+                pointerEvents: "none",
+              }}
+            />
+          </div>
+
+          <div
+            style={{
+              display: "inline-block",
+              position: "relative",
+              marginRight: "20px",
+            }}
+          >
+            <Icons.Cart
+              color="white"
+              size="1.5rem"
+              className="ms-1"
+              style={{ cursor: "pointer" }}
+              onClick={() => {
+                handleShowCartModal(userId);
+              }}
+            />
+            {cartCount > 0 && (
+              <Badge
+                bg="danger"
+                style={{
+                  position: "absolute",
+                  top: "-5px",
+                  right: "-10px",
+                }}
+              >
+                {cartCount}
+              </Badge>
+            )}
+          </div>
+
+          <Icons.Person
+            color="white"
+            size="1.5rem"
+            className="ms-1"
+            style={{ cursor: "pointer" }}
+            onClick={() => {
+              handleShowLoginModal();
+            }}
+          />
+        </Container>
+      </Navbar>
+
+      <Container className="my-2 mt-4">
+        <Row className="justify-content-center">
+          {getCategory.map((category, index) => (
+            <Col key={index} xs={6} sm={4} md={3} lg={2} className="mb-2">
+              <Button
+                variant={
+                  selectedCategory === category.category_name
+                    ? "dark"
+                    : "outline-dark"
+                }
+                className="w-100"
+                onClick={() =>
+                  setSelectedCategory(
+                    selectedCategory === category.category_name
+                      ? ""
+                      : category.category_name
+                  )
+                }
+                size="md"
+              >
+                {category.category_name}
+              </Button>
+            </Col>
+          ))}
         </Row>
       </Container>
 
-      {/* add product modal */}
-      <Modal show={showAddProduct} onHide={handleCloseAddProductModal} centered>
+      {/* Display products by filter and search */}
+      <Container
+        className="my-2"
+        style={{
+          backgroundColor: "rgba(255, 255, 255, 0.8)",
+          borderRadius: "8px",
+          padding: "20px",
+        }}
+      >
+        <Row className="justify-content-center">
+          {filteredAndSearchedProducts.length === 0 ? (
+            <Col xs={12} className="text-center">
+              <h5>No products found</h5>
+            </Col>
+          ) : (
+            filteredAndSearchedProducts.map((product, index) => (
+              <Col key={index} xs={6} sm={6} md={4} lg={3} className="mb-4">
+                <Card className="shadow-sm" style={{ borderRadius: "8px" }}>
+                  <Card.Img
+                    variant="top"
+                    src="/images/no-image-available.jpg"
+                  />
+                  <Card.Body
+                    style={{
+                      display: "flex",
+                      flexDirection: "column",
+                      justifyContent: "space-between",
+                      height: "100%",
+                    }}
+                  >
+                    <div>
+                      <Card.Title
+                        style={{
+                          textTransform: "capitalize",
+                          overflow: "hidden",
+                          textOverflow: "ellipsis",
+                          whiteSpace: "normal",
+                        }}
+                      >
+                        {product.product_name}
+                      </Card.Title>
+                      <Card.Text style={{ fontSize: "0.95rem" }}>
+                        ₱
+                        {Number(product.product_price).toLocaleString("en-PH", {
+                          minimumFractionDigits: 2,
+                          maximumFractionDigits: 2,
+                        })}
+                      </Card.Text>
+                    </div>
+                  </Card.Body>
+                  <Card.Footer className="bg-transparent border-0">
+                    <Row>
+                      <Col className="d-flex justify-content-between">
+                        <Button
+                          variant="success"
+                          className="d-flex align-items-center"
+                          onClick={() => handleShowModal(product.product_id)}
+                        >
+                          <Icons.Cart className="me-2" /> Cart
+                        </Button>
+                        <Button
+                          variant="warning"
+                          className="d-flex align-items-center"
+                          onClick={() => {
+                            handleShowOrderModal(product.product_id);
+                          }}
+                        >
+                          <Icons.Basket className="me-2" /> Order
+                        </Button>
+                      </Col>
+                    </Row>
+                  </Card.Footer>
+                </Card>
+              </Col>
+            ))
+          )}
+        </Row>
+      </Container>
+
+      {/* for login modal */}
+      <Modal show={showLoginModal} onHide={handleCloseLoginModal} centered>
         <Modal.Header closeButton>
-          <Modal.Title>Add Products</Modal.Title>
+          <Modal.Title className="w-100 text-center">
+            Login to E-Commerce
+          </Modal.Title>
         </Modal.Header>
         <Modal.Body>
-          <Form className="mt-3">
-            <Row>
-              <Col>
-                <Form.Group controlId="productName">
-                  <Form.Label>Product Name</Form.Label>
+          <Card className="p-3">
+            <Card.Body>
+              <Form>
+                <Form.Group className="mb-3">
+                  <Form.Label>Username</Form.Label>
                   <Form.Control
                     type="text"
-                    value={productName}
-                    onChange={(e) => setProductName(e.target.value)}
-                    placeholder="Enter product name"
+                    value={username}
+                    onChange={(e) => setUsername(e.target.value)}
+                    placeholder="Enter username"
                     autoComplete="on"
-                    style={{ textTransform: "capitalize" }}
                   />
                 </Form.Group>
-              </Col>
 
-              <Col>
-                <Form.Group controlId="productPrice">
-                  <Form.Label>Product Price</Form.Label>
+                <Form.Group className="mb-3">
+                  <Form.Label>Password</Form.Label>
                   <Form.Control
-                    type="number"
-                    value={productPrice}
-                    onChange={(e) => setProductPrice(e.target.value)}
-                    placeholder="Enter product price"
+                    type="password"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    placeholder="Enter password"
+                    autoComplete="on"
                   />
                 </Form.Group>
-              </Col>
-            </Row>
 
-            <Row>
-              <Col>
-                <Form.Group controlId="productDescription">
-                  <Form.Label className="mt-2">Product Description</Form.Label>
-                  <Form.Control
-                    as="textarea"
-                    rows={3}
-                    value={productDescription}
-                    onChange={(e) => setProductDescription(e.target.value)}
-                    placeholder="Enter product description"
-                    className="mb-2"
-                  />
-                </Form.Group>
-              </Col>
-            </Row>
-
-            <Form.Group controlId="category">
-              <Form.Label>Category</Form.Label>
-              <Form.Control
-                as="select"
-                value={category}
-                onChange={handleSelectionCategory}
-              >
-                <option value="">--Select Category--</option>
-                {getCategory.map((category, index) => (
-                  <option key={index} value={category.category_id}>
-                    {category.category_name}
-                  </option>
-                ))}
-              </Form.Control>
-            </Form.Group>
-          </Form>
+                <Form.Text className="text-center">
+                  No account?
+                  <Link href="/user/register" className="text-primary ms-1">
+                    Register here
+                  </Link>
+                </Form.Text>
+              </Form>
+            </Card.Body>
+          </Card>
         </Modal.Body>
         <Modal.Footer>
-          <Button variant="secondary" onClick={handleCloseAddProductModal}>
-            Close
+          <Button variant="secondary" onClick={handleCloseLoginModal}>
+            Cancel
           </Button>
           <Button
             variant="primary"
             onClick={() => {
-              addProduct();
+              userLogin();
+              handleCloseLoginModal();
             }}
           >
-            Submit
+            Login
           </Button>
         </Modal.Footer>
       </Modal>
 
-      {/* update product modal */}
-      <Modal show={showUpdate} onHide={handleCloseModal} centered>
+      {/* for add to cart modal */}
+      <Modal show={show} onHide={handleClose} centered>
         <Modal.Header closeButton>
-          <Modal.Title>Update Products</Modal.Title>
+          <Modal.Title>Product Detail</Modal.Title>
+        </Modal.Header>
+        <Modal.Body style={{ maxHeight: "400px", overflowY: "auto" }}>
+          <Card>
+            <Card.Img
+              variant="top"
+              src="/images/no-image-available.jpg"
+              style={{ height: "200px", objectFit: "contain" }}
+            />
+            <Card.Body>
+              <Card.Title>{selectedProductName}</Card.Title>
+              <Card.Subtitle className="mb-2 text-muted">
+                ₱
+                {Number(selectedProductPrice).toLocaleString("en-PH", {
+                  minimumFractionDigits: 2,
+                  maximumFractionDigits: 2,
+                })}
+              </Card.Subtitle>
+
+              <Card.Text>{selectedProductDescription}</Card.Text>
+            </Card.Body>
+          </Card>
+          <Form.Group className="mt-2">
+            <Form.Label>Quantity</Form.Label>
+            <Form.Control
+              type="number"
+              value={quantity}
+              onChange={(e) => setQuantity(e.target.value)}
+            />
+          </Form.Group>
+          <Card.Text
+            className="mt-2"
+            style={{
+              textAlign: "right",
+              fontWeight: "bold",
+              fontSize: "1.15rem",
+            }}
+          >
+            Total: ₱
+            {(selectedProductPrice * quantity).toLocaleString("en-US", {
+              minimumFractionDigits: 2,
+              maximumFractionDigits: 2,
+            })}
+          </Card.Text>
+        </Modal.Body>
+        <Modal.Footer>
+          <Button variant="secondary" onClick={handleClose}>
+            Close
+          </Button>
+
+          <Button
+            variant="danger"
+            onClick={handleAddToCartClick}
+            className="d-flex align-items-center justify-content-center"
+          >
+            <Icons.Cart className="me-2" /> Add to Cart
+          </Button>
+        </Modal.Footer>
+      </Modal>
+
+      {/* for order modal */}
+      <Modal
+        show={showUserOrderModal}
+        onHide={handleCloseUserOrderModal}
+        centered
+      >
+        <Modal.Header closeButton>
+          <Modal.Title>Product Detail</Modal.Title>
+        </Modal.Header>
+        <Modal.Body style={{ maxHeight: "400px", overflowY: "auto" }}>
+          <Card>
+            <Card.Img
+              variant="top"
+              src="/images/no-image-available.jpg"
+              style={{ height: "200px", objectFit: "contain" }}
+            />
+            <Card.Body>
+              <Card.Title>{selectedProductName}</Card.Title>
+              <Card.Subtitle className="mb-2 text-muted">
+                ₱
+                {Number(selectedProductPrice).toLocaleString("en-PH", {
+                  minimumFractionDigits: 2,
+                  maximumFractionDigits: 2,
+                })}
+              </Card.Subtitle>
+
+              <Card.Text>{selectedProductDescription}</Card.Text>
+            </Card.Body>
+          </Card>
+          <Form.Group className="mt-2">
+            <Form.Label>Quantity</Form.Label>
+            <Form.Control
+              type="number"
+              value={quantity}
+              onChange={(e) => setQuantity(e.target.value)}
+            />
+          </Form.Group>
+          <Card.Text
+            className="mt-2"
+            style={{
+              textAlign: "right",
+              fontWeight: "bold",
+              fontSize: "1.15rem",
+            }}
+          >
+            Total: ₱
+            {(selectedProductPrice * quantity).toLocaleString("en-US", {
+              minimumFractionDigits: 2,
+              maximumFractionDigits: 2,
+            })}
+          </Card.Text>
+        </Modal.Body>
+        <Modal.Footer>
+          <Button variant="secondary" onClick={handleCloseUserOrderModal}>
+            Close
+          </Button>
+
+          <Button
+            variant="success"
+            onClick={() => {
+              placeOrder(productId);
+              handleCloseUserOrderModal();
+            }}
+            className="d-flex align-items-center justify-content-center"
+          >
+            <Icons.Cart className="me-2" /> Order placed
+          </Button>
+        </Modal.Footer>
+      </Modal>
+
+      {/* for displaying cart modal */}
+      <Modal
+        show={showUsersCartModal}
+        onHide={handleCloseUsersCartModal}
+        centered
+      >
+        <Modal.Header closeButton>
+          <Modal.Title>Cart</Modal.Title>
         </Modal.Header>
         <Modal.Body>
-          <Table className="table-borderless">
+          <Table>
+            <thead>
+              <tr>
+                <th>Select</th>
+                <th>Product Name</th>
+                <th>Price</th>
+                <th>Quantity</th>
+              </tr>
+            </thead>
             <tbody>
-              <tr>
-                <th style={{ width: "30%" }}>Product Name</th>
-                <td>
-                  <Form.Control
-                    type="text"
-                    placeholder="Enter product name"
-                    value={productNameUpdate}
-                    onChange={(e) => setProductNameUpdate(e.target.value)}
-                    className="mb-3"
-                  />
-                </td>
-              </tr>
-              <tr>
-                <th>Product Price</th>
-                <td>
-                  <Form.Control
-                    type="number"
-                    placeholder="Enter product price"
-                    value={productPriceUpdate}
-                    onChange={(e) => setProductPriceUpdate(e.target.value)}
-                    className="mb-3"
-                  />
-                </td>
-              </tr>
-              <tr>
-                <th>Product Description</th>
-                <td>
-                  <Form.Control
-                    as="textarea"
-                    rows={3}
-                    placeholder="Enter product description"
-                    value={productDescriptionUpdate}
-                    onChange={(e) =>
-                      setProductDescriptionUpdate(e.target.value)
-                    }
-                    className="mb-3"
-                  />
-                </td>
-              </tr>
-              <tr>
-                <th>Category</th>
-                <td>
-                  <Form.Select
-                    value={categoryId}
-                    onChange={(e) => setCategoryId(e.target.value)}
-                    className="mb-3"
-                  >
-                    <option>Select a category</option>
-                    {getCategory.map((category) => (
-                      <option
-                        key={category.category_id}
-                        value={category.category_id}
-                      >
-                        {category.category_name}
-                      </option>
-                    ))}
-                  </Form.Select>
-                </td>
-              </tr>
+              {getUsersCartId.map((product, index) => (
+                <tr key={`${product.product_id}-${index}`}>
+                  <td>
+                    <input
+                      type="checkbox"
+                      checked={selectedProducts.includes(product.product_id)}
+                      onChange={() => handleProductSelect(product.product_id)}
+                    />
+                  </td>
+                  <td>{product.product_name}</td>
+                  <td>{product.formatted_price}</td>
+                  <td>{product.quantity}</td>
+                </tr>
+              ))}
             </tbody>
           </Table>
         </Modal.Body>
         <Modal.Footer>
-          <Button variant="secondary" onClick={handleCloseModal}>
+          <Button variant="secondary" onClick={handleCloseUsersCartModal}>
             Close
           </Button>
           <Button
-            variant="primary"
+            variant="success"
             onClick={() => {
-              handleCloseModal(false);
-              updateProducts();
+              placeOrder(selectedProducts);
+              handleCloseUsersCartModal();
             }}
+            disabled={selectedProducts.length === 0}
           >
-            Update Products
+            Order placed
           </Button>
         </Modal.Footer>
       </Modal>
@@ -428,4 +840,4 @@ const Products = () => {
   );
 };
 
-export default Products;
+export default Main;
