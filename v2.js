@@ -1,8 +1,8 @@
 "use client";
 import axios from "axios";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import * as Icons from "react-bootstrap-icons";
 import { useSearchParams } from "next/navigation";
 import {
@@ -36,7 +36,6 @@ const Main = () => {
   const [getCategory, setCategory] = useState([]);
   const [getProducts, setProducts] = useState([]);
   const [selectedProduct, setSelectedProduct] = useState([]);
-  const [getUsersCartId, setGetUsersCartId] = useState([]);
 
   const [show, setShow] = useState(false);
   const handleClose = () => setShow(false);
@@ -50,9 +49,9 @@ const Main = () => {
   const handleCloseUsersCartModal = () => setShowUsersCartModal(false);
   const handleShowUsersCartModal = () => setShowUsersCartModal(true);
 
-  const [showOrderModal, setShowOrderModal] = useState(false);
-  const handleCloseOrderModal = () => setShowOrderModal(false);
-  const handleShowOrderModal = () => setShowOrderModal(true);
+  const [showDirectOrderModal, setShowDirectOrderModal] = useState(false);
+  const handleCloseDirectOrderModal = () => setShowDirectOrderModal(false);
+  const handleShowDirectOrderModal = () => setShowDirectOrderModal(true);
 
   const [selectedProductName, setSelectedProductName] = useState("");
   const [selectedProductPrice, setSelectedProductPrice] = useState("");
@@ -63,7 +62,6 @@ const Main = () => {
   const [quantity, setQuantity] = useState(1);
 
   const [cartItems, setCartItems] = useState([]);
-  const [totalPrice, setTotalPrice] = useState(0);
 
   const userLogin = async () => {
     const url = "http://localhost/nextjs/api/e-commerce/users.php";
@@ -143,8 +141,6 @@ const Main = () => {
     setCategory(response.data);
   };
 
-  const retriveUsersCartId = async () => {};
-
   useEffect(() => {
     retrieveProducts();
     retrieveCategory();
@@ -155,15 +151,13 @@ const Main = () => {
     handleShow(true);
   };
 
-  const handleShowOrderModals = (productId) => {
-    retrieveProductsbyId(productId);
-    handleShowOrderModal(true);
+  const handleShowCartModal = () => {
+    handleShowUsersCartModal(true);
   };
 
-  const handleShowCartModal = () => {
-    retriveUsersCartId(userId);
-    handleShowUsersCartModal(true);
-    console.log(userId);
+  const handleDirectOrder = (productId) => {
+    retrieveProductsbyId(productId);
+    handleShowDirectOrderModal(true);
   };
 
   const filteredAndSearchedProducts = getProducts
@@ -174,48 +168,101 @@ const Main = () => {
       product.product_name.toLowerCase().includes(searchProduct.toLowerCase())
     );
 
-  const handleAddToCartClick = () => {
-    if (!cartItems.some((item) => item.productId === productId)) {
-      setCartItems((prevItems) => [
-        ...prevItems,
-        {
-          productId: productId,
-          productName: selectedProductName,
-          productPrice: selectedProductPrice,
-          quantity: quantity,
-          selected: false,
-        },
-      ]);
-      setCartCount((prevCount) => prevCount + 1);
-      alert("Product added to cart successfully");
-    } else {
-      alert("Product is already in the cart");
+  const addToCart = async () => {
+    if (!userId) {
+      handleShowLoginModal();
+      return;
     }
-    setShow(false);
-    setQuantity(1);
-  };
-
-  const checkOut = async () => {
-    const selectedProducts = cartItems.filter((item) => item.selected);
-
-    if (productId) {
-      selectedProducts.push({
-        productId: productId,
-        quantity: quantity,
-      });
-    }
+    const url = "http://localhost/nextjs/api/e-commerce/users.php";
 
     const jsonData = {
       userId: userId,
-      products: selectedProducts.map((product) => ({
-        productId: product.productId,
-        quantity: product.quantity,
-      })),
+      productId: productId,
+      quantity: quantity,
     };
 
-    console.log(jsonData);
+    const response = await axios.get(url, {
+      params: {
+        json: JSON.stringify(jsonData),
+        operation: "addToCart",
+      },
+    });
 
+    if (response.data == 1) {
+      alert("Add to cart successful!");
+      setQuantity(1);
+    } else {
+      alert("Add to cart failed!");
+    }
+  };
+
+  const handleAddToCartClick = () => {
+    if (window.confirm("Add this item to your cart?")) {
+      const newItem = {
+        productId,
+        productName: selectedProductName,
+        price: selectedProductPrice,
+        quantity,
+        selected: false,
+      };
+
+      setCartItems((prevItems) => [...prevItems, newItem]);
+      setQuantity(1);
+      setShow(false);
+
+      const isAddedSuccessfully = true;
+
+      if (isAddedSuccessfully) {
+        setCartCount((prevCount) => prevCount + 1);
+      }
+
+      if (userId) {
+        addToCart();
+      }
+    }
+  };
+
+  const handleCheckboxChange = (index) => {
+    const newCartItems = [...cartItems];
+    newCartItems[index].selected = !newCartItems[index].selected;
+    setCartItems(newCartItems);
+    const selectedItems = newCartItems.filter((item) => item.selected);
+    console.log(selectedItems.map((item) => JSON.stringify(item)));
+  };
+
+  const calculateTotalPrice = () => {
+    return cartItems.reduce(
+      (total, item) => total + (item.selected ? item.price * item.quantity : 0),
+      0
+    );
+  };
+
+  const placeOrder = async (selectedItems = []) => {
     const url = "http://localhost/nextjs/api/e-commerce/users.php";
+
+    let jsonData;
+
+    if (selectedItems.length === 0) {
+      jsonData = {
+        orders: [
+          {
+            userId: userId,
+            productId: productId,
+            quantity: quantity,
+          },
+        ],
+      };
+    } else {
+      jsonData = {
+        orders: selectedItems.map((item) => ({
+          userId: userId,
+          productId: item.productId,
+          quantity: item.quantity,
+        })),
+      };
+    }
+
+    console.log(jsonData);
 
     const formData = new FormData();
     formData.append("operation", "orders");
@@ -228,45 +275,22 @@ const Main = () => {
     });
 
     if (response.data == 1) {
-      alert("Order Successfully");
-      setCartItems((prevItems) =>
-        prevItems.filter((item) => !selectedProducts.includes(item))
-      );
-      setCartCount(0);
-      setproductId("");
-      setQuantity(1);
-      setCartItems((prevItems) =>
-        prevItems.map((item) =>
-          selectedProducts.some(
-            (product) => product.productId === item.productId
-          )
-            ? { ...item, selected: false }
-            : item
-        )
-      );
+      if (selectedItems.length === 0) {
+        alert("Order Successfully!");
+        retrieveProducts();
+      } else {
+        alert("Checkout Successfully!");
+        setCartItems(cartItems.filter((item) => !item.selected));
+        setCartCount(0);
+      }
     } else {
-      alert("Order Failed");
+      if (selectedItems.length === 0) {
+        alert("Order Failed!");
+      } else {
+        alert("Checkout Failed!");
+      }
     }
   };
-
-  const handleProductSelect = (productId) => {
-    setCartItems((prevItems) =>
-      prevItems.map((item) =>
-        item.productId === productId
-          ? { ...item, selected: !item.selected }
-          : item
-      )
-    );
-  };
-
-  useEffect(() => {
-    const selectedProducts = cartItems.filter((item) => item.selected);
-    const newTotalPrice = selectedProducts.reduce(
-      (total, item) => total + item.productPrice * item.quantity,
-      0
-    );
-    setTotalPrice(newTotalPrice);
-  }, [cartItems]);
 
   return (
     <>
@@ -435,22 +459,26 @@ const Main = () => {
                     </div>
                   </Card.Body>
                   <Card.Footer className="bg-transparent border-0">
-                    <Button
-                      variant="success"
-                      className="d-flex align-items-center justify-content-center"
-                      onClick={() => handleShowModal(product.product_id)}
-                    >
-                      <Icons.Cart className="me-2" /> Cart
-                    </Button>
-                    <Button
-                      variant="primary"
-                      className="d-flex align-items-center justify-content-center ms-2"
-                      onClick={() => {
-                        handleShowOrderModals(product.product_id);
-                      }}
-                    >
-                      <Icons.Bag className="me-2" /> Order
-                    </Button>
+                    <Row>
+                      <Col className="d-flex justify-content-between">
+                        <Button
+                          variant="success"
+                          className="d-flex align-items-center"
+                          onClick={() => handleShowModal(product.product_id)}
+                        >
+                          <Icons.Cart className="me-2" /> Cart
+                        </Button>
+                        <Button
+                          variant="warning"
+                          className="d-flex align-items-center"
+                          onClick={() => {
+                            handleDirectOrder(product.product_id);
+                          }}
+                        >
+                          <Icons.Basket className="me-2" /> Order
+                        </Button>
+                      </Col>
+                    </Row>
                   </Card.Footer>
                 </Card>
               </Col>
@@ -579,7 +607,99 @@ const Main = () => {
         </Modal.Footer>
       </Modal>
 
-      <Modal show={showOrderModal} onHide={handleCloseOrderModal} centered>
+      {/* displaying add to cart product */}
+      <Modal
+        show={showUsersCartModal}
+        onHide={handleCloseUsersCartModal}
+        centered
+      >
+        <Modal.Header closeButton>
+          <Modal.Title>Cart</Modal.Title>
+        </Modal.Header>
+        <Modal.Body>
+          {cartItems.length === 0 ? (
+            <p>Your cart is empty.</p>
+          ) : (
+            <Table striped bordered hover>
+              <thead>
+                <tr>
+                  <th></th>
+                  <th>Product Name</th>
+                  <th>Price</th>
+                  <th>Quantity</th>
+                  <th>Total</th>
+                </tr>
+              </thead>
+              <tbody>
+                {cartItems.map((item, index) => (
+                  <tr key={index}>
+                    <td>
+                      <Form.Check
+                        type="checkbox"
+                        checked={item.selected}
+                        onChange={() => handleCheckboxChange(index)}
+                      />
+                    </td>
+                    <td>{item.productName}</td>
+                    <td>
+                      ₱
+                      {item.price.toLocaleString("en-PH", {
+                        minimumFractionDigits: 2,
+                        maximumFractionDigits: 2,
+                      })}
+                    </td>
+                    <td>{item.quantity}</td>
+                    <td>
+                      ₱
+                      {(item.price * item.quantity).toLocaleString("en-PH", {
+                        minimumFractionDigits: 2,
+                        maximumFractionDigits: 2,
+                      })}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </Table>
+          )}
+        </Modal.Body>
+        <Modal.Footer style={{ justifyContent: "space-between" }}>
+          {cartItems.length > 0 && (
+            <p>
+              Total price: ₱
+              {calculateTotalPrice().toLocaleString("en-PH", {
+                minimumFractionDigits: 2,
+                maximumFractionDigits: 2,
+              })}
+            </p>
+          )}
+          <div style={{ display: "flex", gap: "10px" }}>
+            <Button variant="secondary" onClick={handleCloseUsersCartModal}>
+              Close
+            </Button>
+            {cartItems.length > 0 && (
+              <Button
+                variant="primary"
+                onClick={() => {
+                  const selectedItems = cartItems.filter(
+                    (item) => item.selected
+                  );
+                  placeOrder(selectedItems);
+                  handleCloseUsersCartModal();
+                }}
+              >
+                Checkout
+              </Button>
+            )}
+          </div>
+        </Modal.Footer>
+      </Modal>
+
+      {/* for direct order modal */}
+      <Modal
+        show={showDirectOrderModal}
+        onHide={handleCloseDirectOrderModal}
+        centered
+      >
         <Modal.Header closeButton>
           <Modal.Title>Product Detail</Modal.Title>
         </Modal.Header>
@@ -627,106 +747,20 @@ const Main = () => {
           </Card.Text>
         </Modal.Body>
         <Modal.Footer>
-          <Button variant="secondary" onClick={handleCloseOrderModal}>
+          <Button variant="secondary" onClick={handleCloseDirectOrderModal}>
             Close
           </Button>
 
           <Button
             variant="danger"
             onClick={() => {
-              checkOut();
-              handleCloseOrderModal();
+              placeOrder();
+              handleCloseDirectOrderModal();
             }}
             className="d-flex align-items-center justify-content-center"
           >
-            Order placed
+            <Icons.Basket2 className="me-2" /> Order Placed
           </Button>
-        </Modal.Footer>
-      </Modal>
-
-      <Modal
-        show={showUsersCartModal}
-        onHide={handleCloseUsersCartModal}
-        centered
-      >
-        <Modal.Header closeButton>
-          <Modal.Title>Cart</Modal.Title>
-        </Modal.Header>
-        <Modal.Body>
-          {cartItems.length === 0 ? (
-            <p>Your cart is empty.</p>
-          ) : (
-            <Table striped bordered hover>
-              <thead>
-                <tr>
-                  <th></th>
-                  <th>Product Name</th>
-                  <th>Quantity</th>
-                  <th>Price</th>
-                  <th>Total</th>
-                </tr>
-              </thead>
-              <tbody>
-                {cartItems.map((item) => (
-                  <tr key={item.productId}>
-                    <td>
-                      <Form.Check
-                        type="checkbox"
-                        checked={item.selected}
-                        onChange={() => handleProductSelect(item.productId)}
-                      />
-                    </td>
-                    <td>{item.productName}</td>
-                    <td>{item.quantity}</td>
-                    <td>
-                      ₱
-                      {Number(item.productPrice).toLocaleString("en-PH", {
-                        minimumFractionDigits: 2,
-                        maximumFractionDigits: 2,
-                      })}
-                    </td>
-                    <td>
-                      ₱
-                      {(item.productPrice * item.quantity).toLocaleString(
-                        "en-PH",
-                        {
-                          minimumFractionDigits: 2,
-                          maximumFractionDigits: 2,
-                        }
-                      )}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </Table>
-          )}
-        </Modal.Body>
-        <Modal.Footer>
-          {cartItems.length > 0 && (
-            <>
-              <div className="me-auto">
-                Total Price: ₱
-                {Number(totalPrice).toLocaleString("en-PH", {
-                  minimumFractionDigits: 2,
-                  maximumFractionDigits: 2,
-                })}
-              </div>
-              <Button variant="secondary" onClick={handleCloseUsersCartModal}>
-                Close
-              </Button>
-              {cartItems.some((item) => item.selected) && (
-                <Button
-                  variant="success"
-                  onClick={() => {
-                    handleCloseUsersCartModal();
-                    checkOut();
-                  }}
-                >
-                  Checkout
-                </Button>
-              )}
-            </>
-          )}
         </Modal.Footer>
       </Modal>
     </>

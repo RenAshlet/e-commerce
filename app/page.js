@@ -16,6 +16,8 @@ import {
   Modal,
   Badge,
   Table,
+  OverlayTrigger,
+  Tooltip,
 } from "react-bootstrap";
 
 const Main = () => {
@@ -169,10 +171,6 @@ const Main = () => {
     );
 
   const addToCart = async () => {
-    if (!userId) {
-      handleShowLoginModal();
-      return;
-    }
     const url = "http://localhost/nextjs/api/e-commerce/users.php";
 
     const jsonData = {
@@ -197,6 +195,10 @@ const Main = () => {
   };
 
   const handleAddToCartClick = () => {
+    if (!userId) {
+      handleShowLoginModal();
+      return;
+    }
     if (window.confirm("Add this item to your cart?")) {
       const newItem = {
         productId,
@@ -238,11 +240,22 @@ const Main = () => {
   };
 
   const placeOrder = async (selectedItems = []) => {
+    if (!userId) {
+      handleShowLoginModal();
+      return;
+    }
+
     const url = "http://localhost/nextjs/api/e-commerce/users.php";
 
     let jsonData;
 
     if (selectedItems.length === 0) {
+      const confirmOrder = window.confirm(
+        "Are you sure you want to order this product?"
+      );
+      if (!confirmOrder) {
+        return;
+      }
       jsonData = {
         orders: [
           {
@@ -253,6 +266,12 @@ const Main = () => {
         ],
       };
     } else {
+      const confirmCheckout = window.confirm(
+        "Are you sure you want to checkout these items?"
+      );
+      if (!confirmCheckout) {
+        return;
+      }
       jsonData = {
         orders: selectedItems.map((item) => ({
           userId: userId,
@@ -346,15 +365,20 @@ const Main = () => {
               marginRight: "20px",
             }}
           >
-            <Icons.Cart
-              color="white"
-              size="1.5rem"
-              className="ms-1"
-              style={{ cursor: "pointer" }}
-              onClick={() => {
-                handleShowCartModal();
-              }}
-            />
+            <OverlayTrigger
+              placement="bottom"
+              overlay={<Tooltip id="cart-tooltip">Cart</Tooltip>}
+            >
+              <Icons.Cart
+                color="white"
+                size="1.5rem"
+                className="ms-1"
+                style={{ cursor: "pointer" }}
+                onClick={() => {
+                  handleShowCartModal();
+                }}
+              />
+            </OverlayTrigger>
             {cartCount > 0 && (
               <Badge
                 bg="danger"
@@ -460,10 +484,10 @@ const Main = () => {
                   </Card.Body>
                   <Card.Footer className="bg-transparent border-0">
                     <Row>
-                      <Col className="d-flex justify-content-between">
+                      <Col md={6} className="d-flex justify-content-between">
                         <Button
                           variant="success"
-                          className="d-flex align-items-center"
+                          className="d-flex align-items-center me-md-2"
                           onClick={() => handleShowModal(product.product_id)}
                         >
                           <Icons.Cart className="me-2" /> Cart
@@ -676,20 +700,21 @@ const Main = () => {
             <Button variant="secondary" onClick={handleCloseUsersCartModal}>
               Close
             </Button>
-            {cartItems.length > 0 && (
-              <Button
-                variant="primary"
-                onClick={() => {
-                  const selectedItems = cartItems.filter(
-                    (item) => item.selected
-                  );
-                  placeOrder(selectedItems);
-                  handleCloseUsersCartModal();
-                }}
-              >
-                Checkout
-              </Button>
-            )}
+            {cartItems.length > 0 &&
+              cartItems.some((item) => item.selected) && (
+                <Button
+                  variant="primary"
+                  onClick={() => {
+                    const selectedItems = cartItems.filter(
+                      (item) => item.selected
+                    );
+                    placeOrder(selectedItems);
+                    handleCloseUsersCartModal();
+                  }}
+                >
+                  Checkout
+                </Button>
+              )}
           </div>
         </Modal.Footer>
       </Modal>
