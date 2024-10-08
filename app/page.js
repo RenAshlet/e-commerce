@@ -199,6 +199,7 @@ const Main = () => {
     handleShowUsersCartModal(true);
   };
 
+  //for filter products and categories
   const filteredAndSearchedProducts = getProducts
     .filter((product) =>
       selectedCategory ? product.category_name === selectedCategory : true
@@ -207,6 +208,7 @@ const Main = () => {
       product.product_name.toLowerCase().includes(searchProduct.toLowerCase())
     );
 
+    // for add to cart
   const addToCart = async () => {
     if (!userId) {
       handleShowLoginModal();
