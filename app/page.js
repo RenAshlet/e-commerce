@@ -199,7 +199,7 @@ const Main = () => {
     handleShowUsersCartModal(true);
   };
 
-  //for filter products and categories
+  //for filter products and categoriees bayot
   const filteredAndSearchedProducts = getProducts
     .filter((product) =>
       selectedCategory ? product.category_name === selectedCategory : true
