@@ -199,7 +199,7 @@ const Main = () => {
     handleShowUsersCartModal(true);
   };
 
-  //for filter products and categories
+  //for filter products and categories ywa
   const filteredAndSearchedProducts = getProducts
     .filter((product) =>
       selectedCategory ? product.category_name === selectedCategory : true
